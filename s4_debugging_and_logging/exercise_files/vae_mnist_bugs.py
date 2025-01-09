@@ -10,10 +10,10 @@ from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision.datasets import MNIST
 from torchvision.utils import save_image
-
+import pdb
 # Model Hyperparameters
 dataset_path = "datasets"
-cuda = True
+cuda = False  # BUGFIX! (One device bug)
 DEVICE = torch.device("cuda" if cuda else "cpu")
 batch_size = 100
 x_dim = 784
@@ -26,11 +26,15 @@ epochs = 20
 # Data loading
 mnist_transform = transforms.Compose([transforms.ToTensor()])
 
-train_dataset = MNIST(dataset_path, transform=mnist_transform, train=True, download=True)
-test_dataset = MNIST(dataset_path, transform=mnist_transform, train=False, download=True)
+train_dataset = MNIST(
+    dataset_path, transform=mnist_transform, train=True, download=True)
+test_dataset = MNIST(dataset_path, transform=mnist_transform,
+                     train=False, download=True)
 
-train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
-test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
+train_loader = DataLoader(dataset=train_dataset,
+                          batch_size=batch_size, shuffle=True)
+test_loader = DataLoader(dataset=test_dataset,
+                         batch_size=batch_size, shuffle=False)
 
 
 class Encoder(nn.Module):
@@ -64,7 +68,8 @@ class Decoder(nn.Module):
     def __init__(self, latent_dim, hidden_dim, output_dim) -> None:
         super().__init__()
         self.FC_hidden = nn.Linear(latent_dim, hidden_dim)
-        self.FC_output = nn.Linear(latent_dim, output_dim)
+        # self.FC_output = nn.Linear(latent_dim, output_dim) BUGFIX! (One shape bug)
+        self.FC_output = nn.Linear(hidden_dim, output_dim)
 
     def forward(self, x):
         """Forward pass of the decoder module."""
@@ -83,13 +88,15 @@ class Model(nn.Module):
     def forward(self, x):
         """Forward pass of the VAE model."""
         z, mean, log_var = self.encoder(x)
-        x_hat = self.decoder(z)
+        x_hat = self.decoder(z)  # z = 100x20
 
         return x_hat, mean, log_var
 
 
-encoder = Encoder(input_dim=x_dim, hidden_dim=hidden_dim, latent_dim=latent_dim)
-decoder = Decoder(latent_dim=latent_dim, hidden_dim=hidden_dim, output_dim=x_dim)
+encoder = Encoder(input_dim=x_dim, hidden_dim=hidden_dim,
+                  latent_dim=latent_dim)
+decoder = Decoder(latent_dim=latent_dim,
+                  hidden_dim=hidden_dim, output_dim=x_dim)
 
 model = Model(encoder=encoder, decoder=decoder).to(DEVICE)
 
@@ -98,7 +105,8 @@ BCE_loss = nn.BCELoss()
 
 def loss_function(x, x_hat, mean, log_var):
     """Elbo loss function."""
-    reproduction_loss = nn.functional.binary_cross_entropy(x_hat, x, reduction="sum")
+    reproduction_loss = nn.functional.binary_cross_entropy(
+        x_hat, x, reduction="sum")
     kld = -0.5 * torch.sum(1 + log_var - mean.pow(2) - log_var.exp())
     return reproduction_loss + kld
 
@@ -150,4 +158,5 @@ with torch.no_grad():
     noise = torch.randn(batch_size, latent_dim).to(DEVICE)
     generated_images = decoder(noise)
 
-save_image(generated_images.view(batch_size, 1, 28, 28), "generated_sample.png")
+save_image(generated_images.view(
+    batch_size, 1, 28, 28), "generated_sample.png")

@@ -22,9 +22,11 @@ def stage_best_model_to_registry(model_name: str, metric_name: str = "accuracy",
     """
     api = wandb.Api(
         api_key=os.getenv("WANDB_API_KEY"),
-        overrides={"entity": os.getenv("WANDB_ENTITY"), "project": os.getenv("WANDB_PROJECT")},
+        overrides={"entity": os.getenv(
+            "WANDB_ENTITY"), "project": os.getenv("WANDB_PROJECT")},
     )
-    artifact_collection = api.artifact_collection(type_name="model", name=model_name)
+    artifact_collection = api.artifact_collection(
+        type_name="model", name=model_name)
 
     best_metric = float("-inf") if higher_is_better else float("inf")
     compare_op = operator.gt if higher_is_better else operator.lt
@@ -38,7 +40,8 @@ def stage_best_model_to_registry(model_name: str, metric_name: str = "accuracy",
         logging.error("No model found in registry.")
         return
 
-    logger.info(f"Best model found in registry: {best_artifact.name} with {metric_name}={best_metric}")
+    logger.info(
+        f"Best model found in registry: {best_artifact.name} with {metric_name}={best_metric}")
     best_artifact.link(
         target_path=f"{os.getenv('WANDB_ENTITY')}/model-registry/{model_name}",
         aliases=["best", "staging"],

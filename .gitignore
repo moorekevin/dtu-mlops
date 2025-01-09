@@ -169,3 +169,4 @@ corruptmnist_v2/
 
 # vscode
 .vscode/
+*.png
