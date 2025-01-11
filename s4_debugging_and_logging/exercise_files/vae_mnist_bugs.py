@@ -7,13 +7,14 @@ import torch
 import torch.nn as nn
 import torchvision.transforms as transforms
 from torch.optim import Adam
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, TensorDataset
 from torchvision.datasets import MNIST
+
 from torchvision.utils import save_image
 import pdb
 # Model Hyperparameters
 dataset_path = "datasets"
-cuda = False  # BUGFIX! (One device bug)
+cuda = False
 DEVICE = torch.device("cuda" if cuda else "cpu")
 batch_size = 100
 x_dim = 784
@@ -24,12 +25,18 @@ epochs = 20
 
 
 # Data loading
-mnist_transform = transforms.Compose([transforms.ToTensor()])
+# mnist_transform = transforms.Compose([transforms.ToTensor()])
 
-train_dataset = MNIST(
-    dataset_path, transform=mnist_transform, train=True, download=True)
-test_dataset = MNIST(dataset_path, transform=mnist_transform,
-                     train=False, download=True)
+# train_dataset = MNIST(
+#     dataset_path, transform=mnist_transform, train=True, download=True)
+# test_dataset = MNIST(dataset_path, transform=mnist_transform,
+#                      train=False, download=True)
+train_dataset = MNIST(dataset_path, train=True, download=True)
+train_dataset = TensorDataset(
+    train_dataset.data.float() / 255.0, train_dataset.targets)
+test_dataset = MNIST(dataset_path, train=False, download=True)
+test_dataset = TensorDataset(
+    test_dataset.data.float() / 255.0, test_dataset.targets)
 
 train_loader = DataLoader(dataset=train_dataset,
                           batch_size=batch_size, shuffle=True)
@@ -53,12 +60,14 @@ class Encoder(nn.Module):
         h_ = torch.relu(self.FC_input(x))
         mean = self.FC_mean(h_)
         log_var = self.FC_var(h_)
-        z = self.reparameterization(mean, log_var)
+        z = self.reparameterization(
+            mean, torch.exp(log_var))  # BUGFIX! (Math bug)
         return z, mean, log_var
 
     def reparameterization(self, mean, var):
         """Reparameterization trick to sample z values."""
-        epsilon = torch.randn(*var.shape)
+        epsilon = torch.randn(
+            *var.shape, device=mean.device)  # BUGFIX! (One shape bug)
         return mean + var * epsilon
 
 
@@ -118,6 +127,7 @@ model.train()
 for epoch in range(epochs):
     overall_loss = 0
     for batch_idx, (x, _) in enumerate(train_loader):
+        optimizer.zero_grad()
         if batch_idx % 100 == 0:
             print(batch_idx)
         x = x.view(batch_size, x_dim)
